@@ -1,0 +1,5 @@
+flask
+scrapetube
+requests
+google-generativeai
+python-dotenv

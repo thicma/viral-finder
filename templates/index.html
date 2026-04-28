@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Viral Finder | Discover Outlier Titles</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700;800&family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="bg-blobs">
+        <div class="blob b1"></div>
+        <div class="blob b2"></div>
+        <div class="blob b3"></div>
+    </div>
+
+    <div class="app-shell">
+        <!-- ── SIDEBAR ───────────────────────────────────────── -->
+        <aside class="sidebar">
+            <div class="sidebar-logo">
+                <span class="logo-icon">⚡</span>
+                <span class="logo-text">Viral<strong>Finder</strong></span>
+            </div>
+            <nav class="sidebar-nav">
+                <button class="nav-btn active" data-tab="search" id="nav-search">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                    <span>Viral Search</span>
+                </button>
+                <button class="nav-btn" data-tab="analyzer" id="nav-analyzer">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
+                    <span>Script Analyzer</span>
+                </button>
+                <button class="nav-btn" data-tab="preview" id="nav-preview">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>
+                    <span>Thumbnail Preview</span>
+                </button>
+            </nav>
+            <div class="sidebar-footer">
+                <p>All analysis in English</p>
+                <p>10k+ views filter active</p>
+            </div>
+        </aside>
+
+        <!-- ── MAIN CONTENT ─────────────────────────────────── -->
+        <main class="main-content">
+
+            <!-- ═══════════════════════════════════════════════
+                 TAB 1 — VIRAL SEARCH
+            ════════════════════════════════════════════════ -->
+            <section class="tab-pane active" id="tab-search">
+                <div class="page-header fade-in">
+                    <h1><span class="grad">Viral</span> Search</h1>
+                    <p class="lead">Find titles with 10k+ views ranked by <strong>Views Per Hour</strong> — the outlier signal.</p>
+                </div>
+
+                <form id="search-form" class="search-bar-wrap fade-in">
+                    <input type="text" id="keyword" placeholder="Enter a keyword (e.g. learn English fast)" autocomplete="off">
+                    <button type="submit" id="search-btn" class="btn-primary">
+                        <span class="btn-text">Search Virals</span>
+                        <div class="spinner hidden" id="search-spinner"></div>
+                    </button>
+                </form>
+
+                <!-- Period filter -->
+                <div class="filter-bar fade-in">
+                    <span class="filter-label">Period:</span>
+                    <button class="filter-pill" data-hours="168">Last 7 days</button>
+                    <button class="filter-pill" data-hours="720">Last 30 days</button>
+                    <button class="filter-pill" data-hours="2160">Last 3 months</button>
+                    <button class="filter-pill" data-hours="4320">Last 6 months</button>
+                    <button class="filter-pill" data-hours="8760">Last year</button>
+                    <button class="filter-pill active" data-hours="0">All time</button>
+                </div>
+                <div id="result-info" class="result-info hidden"></div>
+
+                <div id="search-results" class="results-grid"></div>
+                <div id="search-empty" class="empty-state glass hidden">
+                    <span class="empty-icon">🔍</span>
+                    <h3>No results found</h3>
+                    <p>Try another keyword or check your connection.</p>
+                </div>
+            </section>
+
+            <!-- ═══════════════════════════════════════════════
+                 TAB 2 — SCRIPT ANALYZER
+            ════════════════════════════════════════════════ -->
+            <section class="tab-pane" id="tab-analyzer">
+                <div class="page-header fade-in">
+                    <h1><span class="grad">Script</span> Analyzer</h1>
+                    <p class="lead">Paste your script → one AI call → 7 viral title structures with psychological formulas.</p>
+                </div>
+
+                <div class="analyzer-layout">
+                    <div class="analyzer-input-col glass fade-in">
+                        <label class="field-label">Your Niche / Context</label>
+                        <input type="text" id="niche-input" class="field-input" value="English learning for Brazilian Portuguese speakers" placeholder="e.g. English learning for beginners">
+
+                        <label class="field-label" style="margin-top:1.5rem">Video Script</label>
+                        <textarea id="script-input" class="field-textarea" placeholder="Paste your full video script here...&#10;&#10;The AI will analyze the core topic, viewer's pain point and generate 7 optimized viral titles."></textarea>
+
+                        <button id="analyze-btn" class="btn-primary full-width" style="margin-top:1.5rem">
+                            <span class="btn-text">✨ Analyze Script</span>
+                            <div class="spinner hidden" id="analyze-spinner"></div>
+                        </button>
+                    </div>
+
+                    <div class="analyzer-output-col" id="analyzer-output">
+                        <div class="output-placeholder glass">
+                            <span style="font-size:3rem">🤖</span>
+                            <p>Your AI-generated viral title structures will appear here.</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ═══════════════════════════════════════════════
+                 TAB 3 — THUMBNAIL PREVIEW
+            ════════════════════════════════════════════════ -->
+            <section class="tab-pane" id="tab-preview">
+                <div class="page-header fade-in">
+                    <h1><span class="grad">Thumbnail</span> Preview</h1>
+                    <p class="lead">Test your thumbnail in 3 real YouTube contexts before publishing.</p>
+                </div>
+
+                <!-- Upload Controls -->
+                <div class="preview-controls glass fade-in">
+                    <div class="upload-area" id="upload-area">
+                        <span class="upload-icon">🖼️</span>
+                        <span class="upload-label">Click or drag your thumbnail here</span>
+                        <span class="upload-hint">PNG, JPG — 1280×720 recommended</span>
+                        <input type="file" id="thumb-file" accept="image/*" style="display:none">
+                    </div>
+                    <div class="title-field-wrap">
+                        <label class="field-label">Video Title</label>
+                        <input type="text" id="preview-title" class="field-input" placeholder="Enter the video title to preview" value="My New York Nightmare 😱 | Easy English Listening Practice (A2 Level)">
+                        <label class="field-label" style="margin-top:1rem">Channel Name</label>
+                        <input type="text" id="preview-channel" class="field-input" placeholder="Your channel name" value="Imagine Simple English">
+                        <label class="field-label" style="margin-top:1rem">Views &amp; Duration (optional)</label>
+                        <div style="display:flex;gap:0.75rem">
+                            <input type="text" id="preview-views" class="field-input" placeholder="e.g. 120K views" value="689K views">
+                            <input type="text" id="preview-duration" class="field-input" placeholder="e.g. 9:18" value="9:18">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Preview Mode Tabs -->
+                <div class="preview-mode-tabs fade-in">
+                    <button class="mode-tab active" data-mode="home" id="mode-home">
+                        🖥️ YouTube Home
+                    </button>
+                    <button class="mode-tab" data-mode="suggested" id="mode-suggested">
+                        📋 Suggested Videos
+                    </button>
+                    <button class="mode-tab" data-mode="mobile" id="mode-mobile">
+                        📱 Mobile App
+                    </button>
+                </div>
+
+                <!-- ── Preview: Desktop Home ── -->
+                <div class="preview-stage" id="preview-home">
+                    <div class="yt-desktop-chrome">
+                        <div class="yt-desktop-topbar">
+                            <div class="yt-logo-mini">▶ YouTube</div>
+                            <div class="yt-search-bar-fake">🔍 Search</div>
+                            <div style="width:60px;height:32px;background:var(--glass-border);border-radius:100px"></div>
+                        </div>
+                        <div class="yt-home-grid">
+                            <!-- Decoy cards -->
+                            <div class="yt-card decoy"><div class="yt-card-thumb gray-block"></div><div class="yt-card-meta"><div class="yt-avatar-dot"></div><div class="yt-meta-lines"><div class="line-tall"></div><div class="line-short"></div></div></div></div>
+                            <!-- HERO — user's card -->
+                            <div class="yt-card hero-card" id="home-hero">
+                                <div class="yt-card-thumb">
+                                    <img id="home-thumb" src="" alt="thumbnail" class="hidden">
+                                    <div class="thumb-placeholder" id="home-placeholder">📷 Upload thumbnail</div>
+                                    <div class="yt-duration" id="home-duration">9:18</div>
+                                </div>
+                                <div class="yt-card-meta">
+                                    <div class="yt-avatar" id="home-avatar">IS</div>
+                                    <div class="yt-meta-lines">
+                                        <div class="yt-title" id="home-title">My New York Nightmare 😱 | Easy English Listening Practice (A2 Level)</div>
+                                        <div class="yt-channel" id="home-channel">Imagine Simple English</div>
+                                        <div class="yt-views" id="home-views">689K views · 2 months ago</div>
+                                    </div>
+                                </div>
+                            </div>
+                            <!-- More decoy cards -->
+                            <div class="yt-card decoy"><div class="yt-card-thumb gray-block"></div><div class="yt-card-meta"><div class="yt-avatar-dot"></div><div class="yt-meta-lines"><div class="line-tall"></div><div class="line-short"></div></div></div></div>
+                            <div class="yt-card decoy"><div class="yt-card-thumb gray-block"></div><div class="yt-card-meta"><div class="yt-avatar-dot"></div><div class="yt-meta-lines"><div class="line-tall"></div><div class="line-short"></div></div></div></div>
+                            <div class="yt-card decoy"><div class="yt-card-thumb gray-block"></div><div class="yt-card-meta"><div class="yt-avatar-dot"></div><div class="yt-meta-lines"><div class="line-tall"></div><div class="line-short"></div></div></div></div>
+                            <div class="yt-card decoy"><div class="yt-card-thumb gray-block"></div><div class="yt-card-meta"><div class="yt-avatar-dot"></div><div class="yt-meta-lines"><div class="line-tall"></div><div class="line-short"></div></div></div></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ── Preview: Suggested Videos ── -->
+                <div class="preview-stage hidden" id="preview-suggested">
+                    <div class="yt-suggested-chrome">
+                        <!-- Simulated player area -->
+                        <div class="yt-player-area">
+                            <div class="yt-player-screen">▶</div>
+                        </div>
+                        <!-- Suggested sidebar -->
+                        <div class="yt-suggested-sidebar">
+                            <p class="sidebar-label">Up next</p>
+                            <!-- HERO suggested item -->
+                            <div class="sug-item hero-sug" id="sug-hero">
+                                <div class="sug-thumb">
+                                    <img id="sug-thumb" src="" alt="thumbnail" class="hidden">
+                                    <div class="thumb-placeholder small-placeholder" id="sug-placeholder">📷</div>
+                                    <div class="yt-duration small-dur" id="sug-duration">9:18</div>
+                                </div>
+                                <div class="sug-meta">
+                                    <div class="yt-title small-title" id="sug-title">My New York Nightmare 😱 | Easy English Listening Practice (A2 Level)</div>
+                                    <div class="yt-channel sug-channel" id="sug-channel">Imagine Simple English</div>
+                                    <div class="yt-views sug-views" id="sug-views">689K views</div>
+                                </div>
+                            </div>
+                            <!-- Decoy suggested items -->
+                            <div class="sug-item decoy-sug"><div class="sug-thumb gray-block-sug"></div><div class="sug-meta"><div class="line-tall"></div><div class="line-short"></div><div class="line-short" style="width:50%"></div></div></div>
+                            <div class="sug-item decoy-sug"><div class="sug-thumb gray-block-sug"></div><div class="sug-meta"><div class="line-tall"></div><div class="line-short"></div><div class="line-short" style="width:50%"></div></div></div>
+                            <div class="sug-item decoy-sug"><div class="sug-thumb gray-block-sug"></div><div class="sug-meta"><div class="line-tall"></div><div class="line-short"></div><div class="line-short" style="width:50%"></div></div></div>
+                            <div class="sug-item decoy-sug"><div class="sug-thumb gray-block-sug"></div><div class="sug-meta"><div class="line-tall"></div><div class="line-short"></div><div class="line-short" style="width:50%"></div></div></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ── Preview: Mobile ── -->
+                <div class="preview-stage hidden" id="preview-mobile">
+                    <div class="mobile-frame-wrap">
+                        <div class="phone-outer">
+                            <div class="phone-notch"></div>
+                            <div class="phone-screen">
+                                <!-- Status bar -->
+                                <div class="mob-status-bar">
+                                    <span>13:12</span>
+                                    <span>📶 🔋</span>
+                                </div>
+                                <!-- YT Mobile top bar -->
+                                <div class="mob-topbar">
+                                    <span class="mob-yt-logo">▶ YouTube</span>
+                                    <div class="mob-icons">
+                                        <span>📡</span><span>🔔</span><span>🔍</span>
+                                    </div>
+                                </div>
+                                <!-- Category pills -->
+                                <div class="mob-pills">
+                                    <span class="mob-pill active-pill">All</span>
+                                    <span class="mob-pill">New to you</span>
+                                    <span class="mob-pill">ESL</span>
+                                    <span class="mob-pill">Podcasts</span>
+                                </div>
+                                <!-- Feed -->
+                                <div class="mob-feed">
+                                    <!-- Decoy -->
+                                    <div class="mob-card decoy-mob">
+                                        <div class="mob-thumb gray-block"></div>
+                                        <div class="mob-card-meta"><div class="mob-avatar-dot"></div><div class="mob-lines"><div class="line-tall"></div><div class="line-short"></div></div></div>
+                                    </div>
+                                    <!-- HERO mobile card -->
+                                    <div class="mob-card hero-mob" id="mob-hero">
+                                        <div class="mob-thumb">
+                                            <img id="mob-thumb" src="" alt="thumbnail" class="hidden">
+                                            <div class="thumb-placeholder mob-placeholder" id="mob-placeholder">📷 Upload</div>
+                                            <div class="yt-duration mob-dur" id="mob-duration">9:18</div>
+                                        </div>
+                                        <div class="mob-card-meta">
+                                            <div class="mob-avatar" id="mob-avatar">IS</div>
+                                            <div class="mob-lines">
+                                                <div class="mob-title" id="mob-title">My New York Nightmare 😱 | Easy English Listening Practice (A2 Level)</div>
+                                                <div class="mob-sub" id="mob-channel">Imagine Simple English · <span id="mob-views">689K views</span> · 2 months ago</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <!-- Decoy -->
+                                    <div class="mob-card decoy-mob">
+                                        <div class="mob-thumb gray-block"></div>
+                                        <div class="mob-card-meta"><div class="mob-avatar-dot"></div><div class="mob-lines"><div class="line-tall"></div><div class="line-short"></div></div></div>
+                                    </div>
+                                    <div class="mob-card decoy-mob">
+                                        <div class="mob-thumb gray-block"></div>
+                                        <div class="mob-card-meta"><div class="mob-avatar-dot"></div><div class="mob-lines"><div class="line-tall"></div><div class="line-short"></div></div></div>
+                                    </div>
+                                </div>
+                                <!-- Bottom nav -->
+                                <div class="mob-bottomnav">
+                                    <span>🏠</span><span>Shorts</span><span>➕</span><span>📋</span><span>👤</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </section>
+        </main>
+    </div>
+
+    <!-- Card Template for Viral Search -->
+    <template id="card-tpl">
+        <article class="result-card glass fade-in">
+            <div class="rc-img-wrap">
+                <img class="rc-img" src="" alt="">
+                <div class="rc-badge"><span class="rc-vph"></span> VPH</div>
+            </div>
+            <div class="rc-body">
+                <h2 class="rc-title"></h2>
+                <p class="rc-channel"></p>
+                <div class="rc-stats">
+                    <span class="rc-stat">👁️ <span class="rc-views"></span></span>
+                    <span class="rc-stat">🕐 <span class="rc-pub"></span></span>
+                </div>
+                <a class="rc-link" href="" target="_blank">Watch on YouTube ↗</a>
+            </div>
+        </article>
+    </template>
+
+    <!-- Analyzer Title Card Template -->
+    <template id="title-tpl">
+        <div class="title-card glass fade-in">
+            <div class="tc-header">
+                <span class="tc-score"></span>
+                <span class="tc-trigger-badge"></span>
+            </div>
+            <p class="tc-title"></p>
+            <div class="tc-footer">
+                <span class="tc-formula"></span>
+            </div>
+            <p class="tc-why"></p>
+            <div class="tc-thumb-text hidden"></div>
+        </div>
+    </template>
+
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>
