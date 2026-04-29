@@ -115,35 +115,38 @@ _sub_cache = {}   # {"/@ChannelHandle": 12300}
 _cache_lock = threading.Lock()
 
 def parse_subscribers(sub_str):
-    """Convert subscriber strings to int — handles EN and PT-BR formats.
-    Examples: '2.67M', '2,67 mi de inscritos', '327 mil inscritos', '12.3K'
+    """Convert '1.23M subscribers' or '854 subscribers' to int.
+    Assumes standard worldwide (en-US) format due to Accept-Language headers.
     """
     if not sub_str:
         return 0
     s = sub_str.lower()
-    # Strip common suffixes (EN + PT-BR)
-    s = re.sub(r'(subscribers?|inscritos?|de\s+inscritos?)', '', s).strip()
-    s = s.strip()
-
-    # Extract leading number + optional unit
-    m = re.search(r'([\d][0-9,\.]*)\s*([kmb]|mi(?:lhõe?s?|l(?:hõe?s?)?)?)?', s)
+    # Remove common words
+    s = s.replace('subscribers', '').replace('subscriber', '').strip()
+    
+    # In worldwide format, commas are thousands separators. Remove them.
+    s = s.replace(',', '')
+    
+    # Extract number and multiplier
+    m = re.search(r'([\d\.]+)\s*([kmb])?', s)
     if not m:
         return 0
-    num_str = m.group(1).replace(',', '.')
-    unit    = (m.group(2) or '').strip().lower()
+        
+    num_str = m.group(1)
+    unit = m.group(2)
+    
     try:
         num = float(num_str)
-        if unit == 'b':                         return int(num * 1_000_000_000)
-        if unit in ('m', 'mi', 'mil'):          return int(num * 1_000_000) if unit in ('m', 'mi') else int(num * 1_000)
-        if unit == 'k':                         return int(num * 1_000)
-        # "mil" alone (without leading number like "327 mil") → already captured above
+        if unit == 'b': return int(num * 1_000_000_000)
+        if unit == 'm': return int(num * 1_000_000)
+        if unit == 'k': return int(num * 1_000)
         return int(num)
     except:
         return 0
 
 def fetch_subscribers(channel_url):
     """Fetch subscriber count for a YouTube channel URL (e.g. '/@Handle').
-    Takes the MAX of all matches to avoid picking up sidebar channel counts.
+    Collects matches from both simpleText and accessibility labels, then takes MAX.
     """
     with _cache_lock:
         if channel_url in _sub_cache:
@@ -153,22 +156,18 @@ def fetch_subscribers(channel_url):
         full_url = f"https://www.youtube.com{channel_url}"
         headers = {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-            "Accept-Language": "en-US,en;q=0.9"
+            "Accept-Language": "en-US,en;q=0.9"  # Enforces worldwide number formats
         }
         r = _req.get(full_url, headers=headers, timeout=8)
 
-        # Collect ALL matches — the real channel is always the largest value
-        matches = re.findall(r'"subscriberCountText":\{"simpleText":"([^"]+)"', r.text)
-        if not matches:
-            # Fallback: try accessibility label
-            matches = re.findall(
-                r'"subscriberCountText":\{"accessibility":\{"accessibilityData":\{"label":"([^"]+)"',
-                r.text
-            )
+        # Collect ALL possible subscriber texts from the page
+        texts = []
+        texts.extend(re.findall(r'"subscriberCountText":\{"simpleText":"([^"]+)"', r.text))
+        texts.extend(re.findall(r'"subscriberCountText":\{"accessibility":\{"accessibilityData":\{"label":"([^"]+)"', r.text))
 
-        if matches:
-            all_counts = [parse_subscribers(m) for m in matches]
-            subs = max(all_counts)   # ← KEY FIX: ignore sidebar tiny channels
+        if texts:
+            all_counts = [parse_subscribers(t) for t in texts]
+            subs = max(all_counts) if all_counts else 0
         else:
             subs = 0
 
