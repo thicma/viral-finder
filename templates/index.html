@@ -97,6 +97,17 @@
                     <p class="lead">Paste your script → one AI call → 7 viral title structures with psychological formulas.</p>
                 </div>
 
+                <!-- Reference Cart -->
+                <div class="ref-cart-container hidden" id="ref-cart-container">
+                    <div class="ref-cart-header">
+                        <h3>🛒 Reference Cart (<span id="cart-count">0</span>)</h3>
+                        <button type="button" id="clear-cart" class="btn-secondary btn-sm">Clear</button>
+                    </div>
+                    <div class="ref-cart-items" id="ref-cart-items">
+                        <!-- Mini items will be added here -->
+                    </div>
+                </div>
+
                 <div class="analyzer-layout">
                     <div class="analyzer-input-col glass fade-in">
                         <label class="field-label">Your Niche / Context</label>
@@ -315,7 +326,12 @@
                     <span class="rc-stat">👁️ <span class="rc-views"></span></span>
                     <span class="rc-stat">🕐 <span class="rc-pub"></span></span>
                 </div>
-                <a class="rc-link" href="" target="_blank">Watch on YouTube ↗</a>
+                <div class="rc-footer">
+                    <a class="rc-link" href="" target="_blank">Watch on YouTube ↗</a>
+                    <button type="button" class="btn-add-ref" title="Add to Reference Cart">
+                        <span>+</span> Ref
+                    </button>
+                </div>
             </div>
         </article>
     </template>

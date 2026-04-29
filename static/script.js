@@ -20,6 +20,43 @@ const cardTpl       = document.getElementById('card-tpl');
 let   activeHours   = 0;      // 0 = all time
 let   allResults    = [];     // full cached result set from last fetch
 
+// ── Reference Cart ──
+let referenceCart = [];
+const refCartContainer = document.getElementById('ref-cart-container');
+const refCartItems = document.getElementById('ref-cart-items');
+const cartCount = document.getElementById('cart-count');
+document.getElementById('clear-cart').addEventListener('click', () => {
+    referenceCart = [];
+    renderCart();
+    // Refresh buttons visually if results are on screen
+    if (allResults.length > 0) renderResults(allResults);
+});
+
+function renderCart() {
+    if (referenceCart.length === 0) {
+        refCartContainer.classList.add('hidden');
+    } else {
+        refCartContainer.classList.remove('hidden');
+    }
+    cartCount.textContent = referenceCart.length;
+    refCartItems.innerHTML = '';
+    referenceCart.forEach((item, index) => {
+        const div = document.createElement('div');
+        div.className = 'cart-item';
+        div.innerHTML = `
+            <img class="cart-item-img" src="${escHtml(item.thumbnail)}" alt="thumb">
+            <div class="cart-item-title" title="${escHtml(item.title)}">${escHtml(item.title)}</div>
+            <button class="cart-item-remove" data-id="${item.id}">×</button>
+        `;
+        div.querySelector('.cart-item-remove').addEventListener('click', () => {
+            referenceCart = referenceCart.filter(r => r.id !== item.id);
+            renderCart();
+            if (allResults.length > 0) renderResults(allResults); // Update buttons
+        });
+        refCartItems.appendChild(div);
+    });
+}
+
 // ── Period pills: filter client-side from cache ──
 document.querySelectorAll('.filter-pill').forEach(pill => {
     pill.addEventListener('click', () => {
@@ -134,6 +171,33 @@ function renderResults(all) {
         clone.querySelector('.rc-pub').textContent = pubText;
 
         clone.querySelector('.rc-link').href = v.url;
+
+        // Add Ref Button
+        const addBtn = clone.querySelector('.btn-add-ref');
+        const inCart = referenceCart.some(r => r.id === v.id);
+        if (inCart) {
+            addBtn.classList.add('added');
+            addBtn.innerHTML = '✓ Added';
+        }
+        addBtn.addEventListener('click', () => {
+            const exists = referenceCart.some(r => r.id === v.id);
+            if (exists) {
+                referenceCart = referenceCart.filter(r => r.id !== v.id);
+                addBtn.classList.remove('added');
+                addBtn.innerHTML = '<span>+</span> Ref';
+            } else {
+                referenceCart.push({
+                    id: v.id,
+                    title: v.title,
+                    thumbnail: v.thumbnail,
+                    url: v.url
+                });
+                addBtn.classList.add('added');
+                addBtn.innerHTML = '✓ Added';
+            }
+            renderCart();
+        });
+
         searchResults.appendChild(clone);
     });
 
@@ -245,7 +309,11 @@ analyzeBtn.addEventListener('click', async () => {
         const res  = await fetch('/api/analyze', {
             method: 'POST',
             headers: {'Content-Type':'application/json'},
-            body: JSON.stringify({script, niche})
+            body: JSON.stringify({
+                script, 
+                niche,
+                references: referenceCart
+            })
         });
         const data = await res.json();
         if (data.error) throw new Error(data.error);
@@ -255,12 +323,19 @@ analyzeBtn.addEventListener('click', async () => {
         // Topic summary card
         const topicDiv = document.createElement('div');
         topicDiv.className = 'topic-card fade-in';
-        topicDiv.innerHTML = `
+        let html = `
             <div class="topic-label">Core Topic</div>
             <div class="topic-text">${data.core_topic || ''}</div>
             <div class="topic-label" style="margin-top:.75rem">Viewer Pain / Desire</div>
             <div class="topic-text">${data.avatar_pain || ''}</div>
         `;
+        if (data.visual_strategy) {
+            html += `
+                <div class="topic-label" style="margin-top:1rem;color:#ec4899">🎨 Visual Strategy (Thumbnail Prompt)</div>
+                <div class="topic-text" style="color:#e4e4e7;background:rgba(236,72,153,.08);padding:10px;border-radius:8px;border:1px solid rgba(236,72,153,.2);white-space:pre-wrap;">${data.visual_strategy}</div>
+            `;
+        }
+        topicDiv.innerHTML = html;
         analyzerOutput.appendChild(topicDiv);
 
         // Title cards

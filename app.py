@@ -216,19 +216,21 @@ def search_viral():
 
 @app.route('/api/analyze', methods=['POST'])
 def analyze_script():
-    """Single-shot Gemini call: script → viral title structures (all in English)."""
+    """Single-shot Gemini call: script + reference images → viral title structures + visual strategy."""
     data = request.json
     script = data.get('script', '').strip()
     niche  = data.get('niche', 'English learning for Brazilian Portuguese speakers').strip()
+    references = data.get('references', [])
+
     if not script:
         return jsonify({"error": "Script is required"}), 400
     if not GEMINI_API_KEY:
         return jsonify({"error": "GEMINI_API_KEY not configured"}), 500
 
-    # Build the single prompt (everything in English)
-    prompt = f"""You are an elite YouTube viral title strategist with deep expertise in the "{niche}" niche.
+    # Build the base prompt
+    prompt = f"""You are an elite YouTube viral title strategist and visual director with deep expertise in the "{niche}" niche.
 
-TASK: Analyze the video script below and generate 7 viral title structures optimized for maximum click-through rate on YouTube.
+TASK: Analyze the video script below. If reference images and titles are provided, analyze their visual patterns, hook structures, and psychological triggers. Generate 7 viral title structures and 1 comprehensive visual strategy for the thumbnail that mimics the successful elements of the references.
 
 SCRIPT:
 \"\"\"
@@ -240,11 +242,14 @@ RULES:
 - Each title must use a distinct psychological formula (curiosity gap, fear, aspiration, social proof, controversy, how-to, listicle, etc.).
 - Titles should be concise (ideally under 65 characters) but impactful.
 - Avoid clickbait with no substance; each title must be honest to the script.
+- If references are provided, your titles MUST mimic their structural formatting (e.g., ALL CAPS usage, punctuation, curiosity gaps).
+- The visual_strategy must describe exactly how to compose a thumbnail (colors, expressions, layout, text) that fits the reference aesthetic.
 
 RESPONSE FORMAT (valid JSON only, no extra text):
 {{
   "core_topic": "<one-sentence summary of what the script is really about>",
   "avatar_pain": "<the single biggest pain/desire this script addresses>",
+  "visual_strategy": "<Detailed prompt for a designer (or Midjourney) to generate a thumbnail mimicking the exact visual style, colors, composition, and psychological triggers seen in the provided reference thumbnails (or best practices if none provided).>",
   "titles": [
     {{
       "title": "<the viral title>",
@@ -252,16 +257,43 @@ RESPONSE FORMAT (valid JSON only, no extra text):
       "emotional_trigger": "<e.g. fear / curiosity / aspiration / relief / social proof>",
       "hook_score": <integer 1-10>,
       "why_it_works": "<one sentence explanation>",
-      "thumb_text": "<1 to 5 bold words to overlay on the thumbnail that COMPLEMENT (not repeat) the title — should create curiosity or reinforce the emotional hook visually>"
+      "thumb_text": "<1 to 5 bold words to overlay on the thumbnail that COMPLEMENT (not repeat) the title>"
     }}
   ]
 }}"""
+
+    # Prepare multimodal contents
+    contents = [prompt]
+    
+    if references:
+        import io
+        import PIL.Image
+        import requests as _req
+        
+        contents.append("\n\n--- REFERENCE VIRAL VIDEOS ---\nStudy these successful titles and thumbnails carefully:")
+        for ref in references:
+            title = ref.get('title', 'Unknown Title')
+            thumb_url = ref.get('thumbnail', '')
+            contents.append(f"Reference Title: {title}")
+            
+            if thumb_url:
+                try:
+                    # Download thumbnail high-res if possible
+                    url = thumb_url.replace('mqdefault', 'maxresdefault')
+                    r = _req.get(url, timeout=5)
+                    if r.status_code == 404 or len(r.content) < 5000:
+                        r = _req.get(thumb_url, timeout=5) # fallback to mqdefault
+                    if r.status_code == 200:
+                        img = PIL.Image.open(io.BytesIO(r.content))
+                        contents.append(img)
+                except Exception as e:
+                    print(f"Failed to load image {thumb_url}: {e}")
 
     try:
         import google.generativeai as genai
         genai.configure(api_key=GEMINI_API_KEY)
         model = genai.GenerativeModel('gemini-2.5-flash')
-        response = model.generate_content(prompt)
+        response = model.generate_content(contents)
         raw = response.text.strip()
         # Strip markdown fences if present
         if raw.startswith("```"):

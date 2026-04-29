@@ -102,6 +102,25 @@ h1{font-size:2.8rem;font-weight:800;letter-spacing:-1px;margin-bottom:.4rem;}
 .empty-state{text-align:center;padding:3rem 2rem;max-width:420px;margin:0 auto;}
 .empty-icon{font-size:3rem;display:block;margin-bottom:1rem;}
 
+/* RESULT CARD FOOTER & ADD REF BUTTON */
+.rc-footer{display:flex;justify-content:space-between;align-items:center;margin-top:auto;}
+.btn-add-ref{background:rgba(99,102,241,.1);border:1px solid rgba(99,102,241,.3);color:var(--accent);border-radius:6px;padding:4px 8px;font-size:0.75rem;font-weight:bold;cursor:pointer;transition:all 0.2s;}
+.btn-add-ref:hover{background:var(--accent);color:#fff;}
+.btn-add-ref.added{background:#10b981;border-color:#10b981;color:#fff;}
+
+/* REFERENCE CART */
+.ref-cart-container{background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:12px;padding:1rem;margin-bottom:1.5rem;animation:fadein 0.3s;}
+.ref-cart-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;}
+.ref-cart-header h3{font-size:1rem;font-weight:600;margin:0;}
+.btn-clear-cart{background:rgba(255,255,255,.1);border:none;color:#fff;border-radius:6px;padding:4px 8px;font-size:0.75rem;cursor:pointer;}
+.btn-clear-cart:hover{background:rgba(255,255,255,.2);}
+.ref-cart-items{display:grid;grid-template-columns:repeat(auto-fill, minmax(200px, 1fr));gap:10px;}
+.cart-item{display:flex;align-items:center;gap:10px;background:rgba(0,0,0,.3);padding:6px;border-radius:8px;position:relative;border:1px solid rgba(255,255,255,.1);}
+.cart-item-img{width:60px;height:34px;object-fit:cover;border-radius:4px;}
+.cart-item-title{font-size:0.75rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1;}
+.cart-item-remove{background:rgba(239,68,68,.1);color:#ef4444;border:none;border-radius:50%;width:20px;height:20px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:12px;}
+.cart-item-remove:hover{background:#ef4444;color:#fff;}
+
 /* ── ANALYZER ── */
 .analyzer-layout{display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;align-items:start;}
 .analyzer-input-col{padding:1.75rem;}
