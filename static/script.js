@@ -19,6 +19,7 @@ const resultInfo    = document.getElementById('result-info');
 const cardTpl       = document.getElementById('card-tpl');
 let   activeHours   = 0;      // 0 = all time
 let   allResults    = [];     // full cached result set from last fetch
+let   outlierMode   = false;  // 🔬 channel outlier mode
 
 // ── Period pills: filter client-side from cache ──
 document.querySelectorAll('.filter-pill').forEach(pill => {
@@ -28,6 +29,18 @@ document.querySelectorAll('.filter-pill').forEach(pill => {
         activeHours = parseInt(pill.dataset.hours);
         if (allResults.length > 0) renderResults(allResults); // instant, no fetch
     });
+});
+
+// ── Outlier Mode toggle ──
+const outlierToggle = document.getElementById('outlier-toggle');
+outlierToggle.addEventListener('click', () => {
+    outlierMode = !outlierMode;
+    outlierToggle.classList.toggle('active', outlierMode);
+    outlierToggle.querySelector('.toggle-state').textContent = outlierMode ? 'ON' : 'OFF';
+    // Clear cache so next search uses the right endpoint
+    allResults = [];
+    searchResults.innerHTML = '';
+    resultInfo.classList.add('hidden');
 });
 
 // ── Search: always fetch ALL time, cache everything ──
@@ -43,10 +56,14 @@ searchForm.addEventListener('submit', async (e) => {
     allResults = [];
 
     try {
-        const res  = await fetch('/api/search', {
+        const endpoint = outlierMode ? '/api/channel-outliers' : '/api/search';
+        if (outlierMode) {
+            setLoadingText(searchBtn, '🔬 Fetching + analyzing channels...');
+        }
+        const res  = await fetch(endpoint, {
             method: 'POST',
             headers: {'Content-Type':'application/json'},
-            body: JSON.stringify({keyword, max_hours: 0}) // always fetch everything
+            body: JSON.stringify({keyword, max_hours: 0})
         });
         const data = await res.json();
         if (data.results && data.results.length > 0) {
@@ -91,13 +108,26 @@ function renderResults(all) {
         clone.querySelector('.rc-img').src = v.thumbnail;
 
         const badge = clone.querySelector('.rc-badge');
-        badge.innerHTML = '<span class="rc-vph">' + v.outlier.toLocaleString('en-US') + '</span> Score';
-        if (v.outlier > 5000)      badge.style.color = '#f59e0b';
-        else if (v.outlier > 1000) badge.style.color = '#10b981';
-        else                       badge.style.color = '#60a5fa';
 
-        clone.querySelector('.rc-title').textContent = v.title;
-        clone.querySelector('.rc-channel').textContent = v.channel;
+        if (outlierMode && v.ratio > 0) {
+            // Outlier mode: show Views/Subscribers ratio
+            badge.innerHTML = v.tier + ' <span class="rc-vph">' + v.ratio + 'x</span>';
+            badge.title = v.views_str + ' views · ' + v.subs_str + ' subscribers';
+            if (v.ratio >= 20)     { badge.style.color = '#f59e0b'; badge.style.borderColor = 'rgba(245,158,11,.4)'; }
+            else if (v.ratio >= 10){ badge.style.color = '#ef4444'; badge.style.borderColor = 'rgba(239,68,68,.4)'; }
+            else if (v.ratio >= 3) { badge.style.color = '#10b981'; badge.style.borderColor = 'rgba(16,185,129,.4)'; }
+            else                   { badge.style.color = '#60a5fa'; }
+
+            // Add subscriber count below channel name
+            const channelEl = clone.querySelector('.rc-channel');
+            channelEl.textContent = v.channel + ' · ' + v.subs_str + ' subs';
+        } else {
+            badge.innerHTML = '<span class="rc-vph">' + v.outlier.toLocaleString('en-US') + '</span> Score';
+            if (v.outlier > 5000)      badge.style.color = '#f59e0b';
+            else if (v.outlier > 1000) badge.style.color = '#10b981';
+            else                       badge.style.color = '#60a5fa';
+            clone.querySelector('.rc-channel').textContent = v.channel;
+        }
         clone.querySelector('.rc-views').textContent = v.views_str;
         clone.querySelector('.rc-pub').textContent = v.published + ' (' + v.vph + ' VPH)';
         clone.querySelector('.rc-link').href = v.url;
@@ -431,6 +461,11 @@ function setLoading(btn, spinner, loading, defaultText = '') {
         if (span && defaultText) span.textContent = defaultText;
         spinner.classList.add('hidden');
     }
+}
+
+function setLoadingText(btn, text) {
+    const span = btn.querySelector('.btn-text');
+    if (span) span.textContent = text;
 }
 
 // Init live preview

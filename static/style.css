@@ -72,6 +72,11 @@ h1{font-size:2.8rem;font-weight:800;letter-spacing:-1px;margin-bottom:.4rem;}
 .filter-pill{padding:.35rem .9rem;background:rgba(255,255,255,.04);border:1px solid var(--border);border-radius:100px;color:var(--muted);cursor:pointer;font-size:.8rem;font-weight:600;transition:all .2s;}
 .filter-pill:hover{border-color:var(--accent);color:var(--text);}
 .filter-pill.active{background:rgba(99,102,241,.15);border-color:rgba(99,102,241,.4);color:var(--accent);}
+.filter-divider{width:1px;height:20px;background:var(--border);margin:0 .25rem;}
+.outlier-toggle{padding:.35rem 1rem;background:rgba(255,255,255,.04);border:1px solid var(--border);border-radius:100px;color:var(--muted);cursor:pointer;font-size:.8rem;font-weight:600;transition:all .2s;display:flex;align-items:center;gap:.4rem;}
+.outlier-toggle:hover{border-color:#f59e0b;color:#f59e0b;}
+.outlier-toggle.active{background:rgba(245,158,11,.12);border-color:rgba(245,158,11,.5);color:#f59e0b;}
+.outlier-toggle .toggle-state{font-size:.7rem;padding:1px 5px;border-radius:4px;background:rgba(255,255,255,.08);}
 
 /* RESULT INFO */
 .result-info{display:flex;align-items:center;gap:.75rem;flex-wrap:wrap;font-size:.82rem;color:var(--muted);margin-bottom:1.5rem;padding:.6rem 1rem;background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:10px;}
