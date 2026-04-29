@@ -115,28 +115,20 @@ _sub_cache = {}   # {"/@ChannelHandle": 12300}
 _cache_lock = threading.Lock()
 
 def parse_subscribers(sub_str):
-    """Convert '1.23M subscribers' or '854 subscribers' to int.
-    Assumes standard worldwide (en-US) format due to Accept-Language headers.
+    """Convert '2.67M subscribers' or '413K subscribers' or '854 subscribers' to int.
+    Expects standard en-US format (commas = thousands, dots = decimal).
     """
     if not sub_str:
         return 0
-    s = sub_str.lower()
-    # Remove common words
-    s = s.replace('subscribers', '').replace('subscriber', '').strip()
-    
-    # In worldwide format, commas are thousands separators. Remove them.
-    s = s.replace(',', '')
-    
-    # Extract number and multiplier
+    s = sub_str.lower().replace('subscribers', '').replace('subscriber', '').strip()
+    s = s.replace(',', '')   # remove thousands separator
+
     m = re.search(r'([\d\.]+)\s*([kmb])?', s)
     if not m:
         return 0
-        
-    num_str = m.group(1)
-    unit = m.group(2)
-    
     try:
-        num = float(num_str)
+        num = float(m.group(1))
+        unit = m.group(2)
         if unit == 'b': return int(num * 1_000_000_000)
         if unit == 'm': return int(num * 1_000_000)
         if unit == 'k': return int(num * 1_000)
@@ -145,31 +137,49 @@ def parse_subscribers(sub_str):
         return 0
 
 def fetch_subscribers(channel_url):
-    """Fetch subscriber count for a YouTube channel URL (e.g. '/@Handle').
-    Collects matches from both simpleText and accessibility labels, then takes MAX.
+    """Fetch subscriber count from a YouTube channel's /about page.
+    Parses ytInitialData JSON → pageHeaderRenderer → metadataRows
+    to find the real subscriber count (not sidebar recommendations).
     """
     with _cache_lock:
         if channel_url in _sub_cache:
             return _sub_cache[channel_url]
 
     try:
-        full_url = f"https://www.youtube.com{channel_url}"
+        full_url = f"https://www.youtube.com{channel_url}/about"
         headers = {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-            "Accept-Language": "en-US,en;q=0.9"  # Enforces worldwide number formats
+            "Accept-Language": "en-US,en;q=0.9"
         }
-        r = _req.get(full_url, headers=headers, timeout=8)
+        r = _req.get(full_url, headers=headers, timeout=10)
 
-        # Collect ALL possible subscriber texts from the page
-        texts = []
-        texts.extend(re.findall(r'"subscriberCountText":\{"simpleText":"([^"]+)"', r.text))
-        texts.extend(re.findall(r'"subscriberCountText":\{"accessibility":\{"accessibilityData":\{"label":"([^"]+)"', r.text))
+        subs = 0
 
-        if texts:
-            all_counts = [parse_subscribers(t) for t in texts]
-            subs = max(all_counts) if all_counts else 0
-        else:
-            subs = 0
+        # Strategy: parse ytInitialData JSON for pageHeaderRenderer metadata
+        yt_match = re.search(r'var ytInitialData = (\{.+?\});', r.text)
+        if yt_match:
+            import json as _json
+            data = _json.loads(yt_match.group(1))
+            header = data.get('header', {}).get('pageHeaderRenderer', {})
+            if header:
+                content = header.get('content', {}).get('pageHeaderViewModel', {})
+                metadata = content.get('metadata', {}).get('contentMetadataViewModel', {})
+                rows = metadata.get('metadataRows', [])
+                for row in rows:
+                    for part in row.get('metadataParts', []):
+                        text = part.get('text', {}).get('content', '')
+                        if 'subscriber' in text.lower():
+                            subs = parse_subscribers(text)
+                            break
+                    if subs > 0:
+                        break
+
+            # Fallback: old c4TabbedHeaderRenderer (legacy layout)
+            if subs == 0:
+                c4_header = data.get('header', {}).get('c4TabbedHeaderRenderer', {})
+                sub_text = c4_header.get('subscriberCountText', {}).get('simpleText', '')
+                if sub_text:
+                    subs = parse_subscribers(sub_text)
 
         with _cache_lock:
             _sub_cache[channel_url] = subs
