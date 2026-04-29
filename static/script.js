@@ -19,7 +19,6 @@ const resultInfo    = document.getElementById('result-info');
 const cardTpl       = document.getElementById('card-tpl');
 let   activeHours   = 0;      // 0 = all time
 let   allResults    = [];     // full cached result set from last fetch
-let   outlierMode   = false;  // 🔬 channel outlier mode
 
 // ── Period pills: filter client-side from cache ──
 document.querySelectorAll('.filter-pill').forEach(pill => {
@@ -27,47 +26,44 @@ document.querySelectorAll('.filter-pill').forEach(pill => {
         document.querySelectorAll('.filter-pill').forEach(p => p.classList.remove('active'));
         pill.classList.add('active');
         activeHours = parseInt(pill.dataset.hours);
-        if (allResults.length > 0) renderResults(allResults); // instant, no fetch
+        if (allResults.length > 0) renderResults(allResults);
     });
 });
 
-// ── Outlier Mode toggle ──
-const outlierToggle = document.getElementById('outlier-toggle');
-outlierToggle.addEventListener('click', () => {
-    outlierMode = !outlierMode;
-    outlierToggle.classList.toggle('active', outlierMode);
-    outlierToggle.querySelector('.toggle-state').textContent = outlierMode ? 'ON' : 'OFF';
-    // Clear cache so next search uses the right endpoint
-    allResults = [];
-    searchResults.innerHTML = '';
-    resultInfo.classList.add('hidden');
-});
+// ── Sort toggle: Outlier Score vs Ratio ──
+let sortByRatio = false;
+const sortToggle = document.getElementById('sort-toggle');
+if (sortToggle) {
+    sortToggle.addEventListener('click', () => {
+        sortByRatio = !sortByRatio;
+        sortToggle.classList.toggle('active', sortByRatio);
+        sortToggle.querySelector('.toggle-state').textContent = sortByRatio ? 'RATIO' : 'SCORE';
+        if (allResults.length > 0) renderResults(allResults);
+    });
+}
 
-// ── Search: always fetch ALL time, cache everything ──
+// ── Search: single unified endpoint ──
 searchForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     const keyword = document.getElementById('keyword').value.trim();
     if (!keyword) return;
 
     setLoading(searchBtn, searchSpinner, true);
+    setLoadingText(searchBtn, 'Searching + analyzing channels...');
     searchResults.innerHTML = '';
     searchEmpty.classList.add('hidden');
     resultInfo.classList.add('hidden');
     allResults = [];
 
     try {
-        const endpoint = outlierMode ? '/api/channel-outliers' : '/api/search';
-        if (outlierMode) {
-            setLoadingText(searchBtn, '🔬 Fetching + analyzing channels...');
-        }
-        const res  = await fetch(endpoint, {
+        const res  = await fetch('/api/search', {
             method: 'POST',
             headers: {'Content-Type':'application/json'},
             body: JSON.stringify({keyword, max_hours: 0})
         });
         const data = await res.json();
         if (data.results && data.results.length > 0) {
-            allResults = data.results; // cache
+            allResults = data.results;
             renderResults(allResults);
         } else {
             searchEmpty.classList.remove('hidden');
@@ -80,7 +76,6 @@ searchForm.addEventListener('submit', async (e) => {
 });
 
 function renderResults(all) {
-    // Filter by active period client-side
     const filtered = activeHours === 0
         ? all
         : all.filter(v => v.hours <= activeHours);
@@ -94,42 +89,50 @@ function renderResults(all) {
         return;
     }
 
+    // Sort based on toggle
+    const sorted = [...filtered].sort((a, b) =>
+        sortByRatio ? b.ratio - a.ratio : b.outlier - a.outlier
+    );
+
     const periodLabel = document.querySelector('.filter-pill.active')?.textContent?.trim() || 'All time';
+    const sortLabel = sortByRatio ? 'Views/Subs Ratio' : 'Outlier Score';
     resultInfo.innerHTML =
-        '<span>🎯 <strong>' + filtered.length + '</strong> of ' + all.length + ' titles shown</span>' +
+        '<span>🎯 <strong>' + sorted.length + '</strong> of ' + all.length + ' titles shown</span>' +
         '<span class="info-sep">·</span>' +
         '<span>Period: <strong>' + periodLabel + '</strong></span>' +
         '<span class="info-sep">·</span>' +
-        '<span>Sorted by <strong>Outlier Score</strong> (views ÷ √hours)</span>';
+        '<span>Sorted by <strong>' + sortLabel + '</strong></span>';
     resultInfo.classList.remove('hidden');
 
-    filtered.forEach(v => {
+    sorted.forEach(v => {
         const clone = cardTpl.content.cloneNode(true);
         clone.querySelector('.rc-img').src = v.thumbnail;
 
+        // Badge: always show Outlier Score
         const badge = clone.querySelector('.rc-badge');
+        badge.innerHTML = '<span class="rc-vph">' + v.outlier.toLocaleString('en-US') + '</span> Score';
+        if (v.outlier > 5000)      badge.style.color = '#f59e0b';
+        else if (v.outlier > 1000) badge.style.color = '#10b981';
+        else                       badge.style.color = '#60a5fa';
 
-        if (outlierMode && v.ratio > 0) {
-            // Outlier mode: show Views/Subscribers ratio
-            badge.innerHTML = v.tier + ' <span class="rc-vph">' + v.ratio + 'x</span>';
-            badge.title = v.views_str + ' views · ' + v.subs_str + ' subscribers';
-            if (v.ratio >= 20)     { badge.style.color = '#f59e0b'; badge.style.borderColor = 'rgba(245,158,11,.4)'; }
-            else if (v.ratio >= 10){ badge.style.color = '#ef4444'; badge.style.borderColor = 'rgba(239,68,68,.4)'; }
-            else if (v.ratio >= 3) { badge.style.color = '#10b981'; badge.style.borderColor = 'rgba(16,185,129,.4)'; }
-            else                   { badge.style.color = '#60a5fa'; }
+        clone.querySelector('.rc-title').textContent = v.title;
 
-            // Add subscriber count below channel name
-            const channelEl = clone.querySelector('.rc-channel');
-            channelEl.textContent = v.channel + ' · ' + v.subs_str + ' subs';
-        } else {
-            badge.innerHTML = '<span class="rc-vph">' + v.outlier.toLocaleString('en-US') + '</span> Score';
-            if (v.outlier > 5000)      badge.style.color = '#f59e0b';
-            else if (v.outlier > 1000) badge.style.color = '#10b981';
-            else                       badge.style.color = '#60a5fa';
-            clone.querySelector('.rc-channel').textContent = v.channel;
-        }
+        // Channel + subs
+        const channelText = v.subs_str && v.subs_str !== 'N/A'
+            ? v.channel + ' · ' + v.subs_str + ' subs'
+            : v.channel;
+        clone.querySelector('.rc-channel').textContent = channelText;
+
         clone.querySelector('.rc-views').textContent = v.views_str;
-        clone.querySelector('.rc-pub').textContent = v.published + ' (' + v.vph + ' VPH)';
+
+        // Published + VPH + Ratio
+        let pubText = v.published + ' (' + v.vph + ' VPH)';
+        if (v.ratio > 0) {
+            const tierIcon = v.tier === 'ultra' ? '🔥🔥🔥' : v.tier === 'high' ? '🔥🔥' : v.tier === 'medium' ? '🔥' : '';
+            pubText += ' · ' + tierIcon + ' ' + v.ratio + 'x ratio';
+        }
+        clone.querySelector('.rc-pub').textContent = pubText;
+
         clone.querySelector('.rc-link').href = v.url;
         searchResults.appendChild(clone);
     });

@@ -45,68 +45,6 @@ def parse_hours(time_str):
     if "year" in s or "ano" in s: return num * 8_760
     return 999_999
 
-# ── Routes ──────────────────────────────────────────────────────────────────────
-
-@app.route('/')
-def index():
-    return render_template('index.html')
-
-
-@app.route('/api/search', methods=['POST'])
-def search_viral():
-    import math
-    data      = request.json
-    keyword   = data.get('keyword', '').strip()
-    max_hours = int(data.get('max_hours', 0))   # 0 = all time
-    if not keyword:
-        return jsonify({"error": "Keyword is required"}), 400
-    try:
-        gen = scrapetube.get_search(keyword, limit=200)
-        results = []
-        for v in gen:
-            try:
-                title         = v.get('title', {}).get('runs', [{}])[0].get('text', '')
-                video_id      = v.get('videoId', '')
-                published_str = v.get('publishedTimeText', {}).get('simpleText', '')
-                views_str     = v.get('viewCountText', {}).get('simpleText', '')
-                owner         = v.get('ownerText', {}).get('runs', [{}])[0].get('text', '')
-                thumbnail     = f"https://img.youtube.com/vi/{video_id}/mqdefault.jpg"
-                views = parse_views(views_str)
-                hours = parse_hours(published_str)
-
-                # Period filter: skip videos older than chosen window
-                if max_hours > 0 and hours > max_hours:
-                    continue
-
-                if views >= 10_000:
-                    # VPH — raw, can inflate very new videos
-                    vph = round(views / hours, 1) if hours > 0 else views
-
-                    # Outlier Score (vidIQ-style):
-                    # views / sqrt(hours) gives a balanced signal:
-                    # a 1-week-old video with 100k views scores higher than
-                    # a 5-year-old video with 500k views, but a 1-hour-old
-                    # video with 200 views doesn't dominate.
-                    outlier = round(views / math.sqrt(max(hours, 1)), 1)
-
-                    results.append({
-                        "id": video_id, "title": title, "channel": owner,
-                        "views": views, "views_str": views_str,
-                        "published": published_str, "hours": hours,
-                        "vph": vph, "outlier": outlier,
-                        "thumbnail": thumbnail,
-                        "url": f"https://www.youtube.com/watch?v={video_id}"
-                    })
-            except Exception:
-                continue
-
-        # Rank by Outlier Score
-        results.sort(key=lambda x: x['outlier'], reverse=True)
-        return jsonify({"results": results[:50], "total": len(results)})
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
-
 # ── Subscriber scraper ────────────────────────────────────────────────────────
 import requests as _req
 import threading
@@ -115,13 +53,13 @@ _sub_cache = {}   # {"/@ChannelHandle": 12300}
 _cache_lock = threading.Lock()
 
 def parse_subscribers(sub_str):
-    """Convert '2.67M subscribers' or '413K subscribers' or '854 subscribers' to int.
+    """Convert '2.67M subscribers' or '413K subscribers' to int.
     Expects standard en-US format (commas = thousands, dots = decimal).
     """
     if not sub_str:
         return 0
     s = sub_str.lower().replace('subscribers', '').replace('subscriber', '').strip()
-    s = s.replace(',', '')   # remove thousands separator
+    s = s.replace(',', '')
 
     m = re.search(r'([\d\.]+)\s*([kmb])?', s)
     if not m:
@@ -138,8 +76,7 @@ def parse_subscribers(sub_str):
 
 def fetch_subscribers(channel_url):
     """Fetch subscriber count from a YouTube channel's /about page.
-    Parses ytInitialData JSON → pageHeaderRenderer → metadataRows
-    to find the real subscriber count (not sidebar recommendations).
+    Parses ytInitialData JSON → pageHeaderRenderer → metadataRows.
     """
     with _cache_lock:
         if channel_url in _sub_cache:
@@ -154,8 +91,6 @@ def fetch_subscribers(channel_url):
         r = _req.get(full_url, headers=headers, timeout=10)
 
         subs = 0
-
-        # Strategy: parse ytInitialData JSON for pageHeaderRenderer metadata
         yt_match = re.search(r'var ytInitialData = (\{.+?\});', r.text)
         if yt_match:
             import json as _json
@@ -174,10 +109,10 @@ def fetch_subscribers(channel_url):
                     if subs > 0:
                         break
 
-            # Fallback: old c4TabbedHeaderRenderer (legacy layout)
+            # Fallback: old c4TabbedHeaderRenderer
             if subs == 0:
-                c4_header = data.get('header', {}).get('c4TabbedHeaderRenderer', {})
-                sub_text = c4_header.get('subscriberCountText', {}).get('simpleText', '')
+                c4 = data.get('header', {}).get('c4TabbedHeaderRenderer', {})
+                sub_text = c4.get('subscriberCountText', {}).get('simpleText', '')
                 if sub_text:
                     subs = parse_subscribers(sub_text)
 
@@ -187,19 +122,22 @@ def fetch_subscribers(channel_url):
     except:
         return 0
 
+# ── Routes ──────────────────────────────────────────────────────────────────────
+
+@app.route('/')
+def index():
+    return render_template('index.html')
 
 
-@app.route('/api/channel-outliers', methods=['POST'])
-def channel_outliers():
-    """Search videos then enrich each with channel subscriber count.
-    Ranks by Views/Subscribers ratio to surface small channels with huge reach.
-    Multiple videos from the same channel are kept — they validate the THEME."""
+@app.route('/api/search', methods=['POST'])
+def search_viral():
+    """Unified search: scrape videos → fetch subscriber counts in parallel → return
+    each result with Outlier Score AND Views/Subs ratio in a single response."""
     import math
     from concurrent.futures import ThreadPoolExecutor
 
-    data      = request.json
-    keyword   = data.get('keyword', '').strip()
-    max_hours = int(data.get('max_hours', 0))
+    data    = request.json
+    keyword = data.get('keyword', '').strip()
     if not keyword:
         return jsonify({"error": "Keyword is required"}), 400
 
@@ -214,7 +152,6 @@ def channel_outliers():
                 published_str = v.get('publishedTimeText', {}).get('simpleText', '')
                 views_str     = v.get('viewCountText', {}).get('simpleText', '')
                 owner         = v.get('ownerText', {}).get('runs', [{}])[0].get('text', '')
-                # Extract canonical channel URL (e.g. /@Handle or /channel/ID)
                 channel_url   = (v.get('shortBylineText', {})
                                   .get('runs', [{}])[0]
                                   .get('navigationEndpoint', {})
@@ -224,8 +161,6 @@ def channel_outliers():
                 views = parse_views(views_str)
                 hours = parse_hours(published_str)
 
-                if max_hours > 0 and hours > max_hours:
-                    continue
                 if views < 10_000:
                     continue
 
@@ -248,24 +183,19 @@ def channel_outliers():
         unique_channels = list({r['channel_url'] for r in raw_results if r['channel_url']})
 
         def fetch_one(ch_url):
-            fetch_subscribers(ch_url)   # result goes into _sub_cache
+            fetch_subscribers(ch_url)
 
         with ThreadPoolExecutor(max_workers=8) as ex:
             ex.map(fetch_one, unique_channels)
 
-        # Enrich results with subscriber data + ratio
-        enriched = []
+        # Enrich every result with subscriber data + ratio
         for r in raw_results:
             subs = _sub_cache.get(r['channel_url'], 0)
-            if subs > 0:
-                ratio = round(r['views'] / subs, 2)
-            else:
-                ratio = 0
+            ratio = round(r['views'] / subs, 2) if subs > 0 else 0
 
-            # Tier label
-            if ratio >= 20:   tier = "🔥🔥🔥"
-            elif ratio >= 10: tier = "🔥🔥"
-            elif ratio >= 3:  tier = "🔥"
+            if ratio >= 20:   tier = "ultra"
+            elif ratio >= 10: tier = "high"
+            elif ratio >= 3:  tier = "medium"
             else:             tier = ""
 
             subs_str = (f"{subs/1_000_000:.1f}M" if subs >= 1_000_000
@@ -274,11 +204,10 @@ def channel_outliers():
 
             r.update({"subscribers": subs, "subs_str": subs_str,
                        "ratio": ratio, "tier": tier})
-            enriched.append(r)
 
-        # Rank by ratio descending (best outliers first)
-        enriched.sort(key=lambda x: x['ratio'], reverse=True)
-        return jsonify({"results": enriched[:50], "total": len(enriched)})
+        # Default sort by Outlier Score
+        raw_results.sort(key=lambda x: x['outlier'], reverse=True)
+        return jsonify({"results": raw_results[:50], "total": len(raw_results)})
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
